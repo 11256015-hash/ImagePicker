@@ -1,27 +1,36 @@
 import { Image } from 'expo-image';
-import { useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as ImagePickerLib from 'expo-image-picker';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ImagePickerScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const pickImage = () => {
-    if (Platform.OS === 'web') {
-      // Web: 使用原生 input 元素
-      fileInputRef.current?.click();
-    }
-  };
+  const pickImage = async () => {
+    try {
+      // 请求权限
+      const permissionResult = await ImagePickerLib.requestMediaLibraryPermissionsAsync();
 
-  const handleFileChange = (event: any) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setImageUri(result);
-      };
-      reader.readAsDataURL(file);
+      if (!permissionResult.granted) {
+        Alert.alert('権限が必要です', 'メディアライブラリにアクセスする権限が必要です');
+        return;
+      }
+
+      // 打开图片选择器
+      const result = await ImagePickerLib.launchImageLibraryAsync({
+        mediaTypes: ImagePickerLib.MediaType.IMAGES,
+        allowsEditing: false,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      // 如果用户选择了图片
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('错误', '选择图片时出错');
+      console.error(error);
     }
   };
 
@@ -33,26 +42,15 @@ export default function ImagePickerScreen() {
           <Image source={{ uri: imageUri }} style={styles.image} />
         ) : (
           <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderText}>無圖片</Text>
+            {/* 占位符 */}
           </View>
         )}
       </View>
 
       {/* 按钮 */}
       <TouchableOpacity style={styles.button} onPress={pickImage}>
-        <Text style={styles.buttonText}>📱 選擇圖片</Text>
+        <Text style={styles.buttonText}>📱 选择图片</Text>
       </TouchableOpacity>
-
-      {/* Web 隐藏的文件输入 */}
-      {Platform.OS === 'web' && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
-      )}
     </View>
   );
 }
@@ -68,7 +66,6 @@ const styles = StyleSheet.create({
   imageContainer: {
     marginBottom: 30,
     width: '100%',
-    maxWidth: 400,
     aspectRatio: 1,
   },
   image: {
@@ -83,10 +80,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: '#999',
   },
   button: {
     backgroundColor: '#007AFF',
